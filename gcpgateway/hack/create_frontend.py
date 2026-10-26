@@ -174,7 +174,7 @@ def provision_frontend(
                     "--protocol=TCP",
                     f"--health-checks={hc_name}",
                     f"--timeout={draining_timeout}s",
-                    f"--draining-timeout={draining_timeout}s",
+                    f"--connection-draining-timeout={draining_timeout}s",
                     f"--description={desc_bs}",
                     f"--project={project}",
                 ],
