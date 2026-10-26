@@ -116,6 +116,10 @@ func runDataplane(ctx context.Context, args []string) error {
 	fs.StringVar(&opts.HealthProbeBindAddress, "health-probe-bind-address", opts.HealthProbeBindAddress, "Health probe bind address")
 	fs.StringVar(&opts.ProxyAddr, "proxy-bind-address", opts.ProxyAddr, "HTTP proxy bind address")
 	fs.StringVar(&opts.ProxyHTTPSAddr, "proxy-https-bind-address", opts.ProxyHTTPSAddr, "HTTPS proxy bind address")
+	// The singlepod provisioner passes the HTTP/3 flags to every data plane with an HTTPS listener, so the
+	// data-plane flag set must accept them (matching cmd/gateway-api-reference-implementation).
+	fs.StringVar(&opts.ProxyHTTP3Addr, "proxy-http3-bind-address", opts.ProxyHTTP3Addr, "The UDP address the proxy binds to for HTTP/3 (defaults to the HTTPS bind address)")
+	fs.IntVar(&opts.ProxyHTTP3AdvertisedPort, "proxy-http3-advertised-port", opts.ProxyHTTP3AdvertisedPort, "The port advertised in the Alt-Svc header for HTTP/3 (if 0, inferred from bind address)")
 
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -144,7 +148,9 @@ func runDataplane(ctx context.Context, args []string) error {
 	opts.DataplaneGatewayName = gatewayName
 	opts.DisableStatusUpdates = true
 	opts.LeaderElection = false
-	opts.ProxyHTTP3Addr = opts.ProxyHTTPSAddr
+	if opts.ProxyHTTP3Addr == "" {
+		opts.ProxyHTTP3Addr = opts.ProxyHTTPSAddr
+	}
 	opts.AddressProvider = nil
 
 	return gari.Run(ctx, opts)
@@ -292,6 +298,8 @@ func runController(ctx context.Context, args []string) error {
 }
 
 func main() {
+	// controller-runtime drops all log output until a logger is set.
+	ctrl.SetLogger(klog.NewKlogr())
 	ctx := ctrl.SetupSignalHandler()
 	if err := Run(ctx, os.Args[1:]); err != nil {
 		klog.Errorf("gcpgateway: %v", err)
